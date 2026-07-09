@@ -248,7 +248,10 @@ async def upload_invoice(file: UploadFile = File(...)):
         if not isinstance(extracted, dict):
             extracted = {}
     except Exception as e:
-        raise HTTPException(status_code=400, detail=f"Failed to parse invoice: {str(e)}")
+        error_msg = str(e)
+        if '429' in error_msg or 'RESOURCE_EXHAUSTED' in error_msg:
+            raise HTTPException(status_code=429, detail="Our AI is currently analyzing too many invoices. Please wait 30 seconds and try again.")
+        raise HTTPException(status_code=400, detail=f"Failed to parse invoice: {error_msg}")
         
     vendor_name = str(extracted.get('vendor_name') or 'Unknown')
     inv_date = str(extracted.get('date') or datetime.now().strftime('%Y-%m-%d'))
