@@ -50,14 +50,23 @@ def get_dashboard_stats():
     res_flagged_invoices = supabase.table("predictions").select("invoice_id, invoices(amount)").gte("risk_score", 80).execute()
     value_at_risk = sum([item['invoices']['amount'] for item in res_flagged_invoices.data if item.get('invoices')])
     
-    # Precision (mock metric as per spec)
-    precision = 92.0
+    # Exact Precision: True Positives (flagged and not clean) / All Flagged
+    res_tp = supabase.table("predictions").select("invoice_id", count="exact").gte("risk_score", 80).neq("fraud_type", "clean").execute()
+    tp_count = res_tp.count
+    
+    precision = (tp_count / flagged_count * 100) if flagged_count > 0 else 100.0
+    
+    # Exact Accuracy: (True Positives + True Negatives) / Total
+    res_tn = supabase.table("predictions").select("invoice_id", count="exact").lt("risk_score", 80).eq("fraud_type", "clean").execute()
+    tn_count = res_tn.count
+    accuracy = ((tp_count + tn_count) / total_count * 100) if total_count > 0 else 100.0
     
     return {
         "total_invoices": total_count,
         "flagged_invoices": flagged_count,
         "value_at_risk": round(value_at_risk, 2),
-        "precision": precision
+        "precision": round(precision, 1),
+        "accuracy": round(accuracy, 1)
     }
 
 @app.get("/invoices")
