@@ -116,6 +116,38 @@ def get_invoices(risk_min: int = 0, limit: int = 50):
         })
     return results
 
+@app.get("/invoices/batch")
+def get_batch_invoices(ids: str):
+    if not ids:
+        return []
+    
+    id_list = [i.strip() for i in ids.split(",") if i.strip()]
+    if not id_list:
+        return []
+        
+    # Fetch invoices matching the IDs
+    response = supabase.table("predictions") \
+        .select("risk_score, fraud_type, invoice_id, invoices(id, amount, date, status, vendors(name))") \
+        .in_("invoice_id", id_list) \
+        .order("created_at", desc=True) \
+        .execute()
+        
+    results = []
+    for row in response.data:
+        inv = row.get("invoices")
+        if not inv: continue
+        ven = inv.get("vendors")
+        results.append({
+            "id": inv["id"],
+            "vendor_name": ven["name"] if ven else "Unknown",
+            "amount": inv["amount"],
+            "date": inv["date"],
+            "status": inv["status"],
+            "risk_score": row["risk_score"],
+            "fraud_type": row["fraud_type"]
+        })
+    return results
+
 @app.get("/invoices/{id}")
 def get_invoice_detail(id: str):
     # Fetch invoice, vendor, and prediction
