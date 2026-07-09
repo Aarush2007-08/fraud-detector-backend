@@ -213,23 +213,25 @@ async def upload_invoice(file: UploadFile = File(...)):
         if text.startswith('```json'): text = text[7:-3]
         elif text.startswith('```'): text = text[3:-3]
         extracted = json.loads(text.strip())
+        if not isinstance(extracted, dict):
+            extracted = {}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to parse invoice: {str(e)}")
         
-    vendor_name = extracted.get('vendor_name', 'Unknown')
-    inv_date = extracted.get('date', datetime.now().strftime('%Y-%m-%d'))
+    vendor_name = str(extracted.get('vendor_name') or 'Unknown')
+    inv_date = str(extracted.get('date') or datetime.now().strftime('%Y-%m-%d'))
     
     # Safely parse amount handling commas or currency symbols
-    amount_str = str(extracted.get('amount', '0'))
+    amount_str = str(extracted.get('amount') or '0')
     amount_str = ''.join(c for c in amount_str if c.isdigit() or c == '.')
     try:
         amount = float(amount_str) if amount_str else 0.0
-    except ValueError:
+    except (ValueError, TypeError):
         amount = 0.0
         
     try:
-        line_count = int(extracted.get('line_count', 1))
-    except ValueError:
+        line_count = int(extracted.get('line_count') or 1)
+    except (ValueError, TypeError):
         line_count = 1
     
     res_ven = supabase.table("vendors").select("*").eq("name", vendor_name).execute()
