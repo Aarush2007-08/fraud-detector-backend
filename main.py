@@ -218,8 +218,19 @@ async def upload_invoice(file: UploadFile = File(...)):
         
     vendor_name = extracted.get('vendor_name', 'Unknown')
     inv_date = extracted.get('date', datetime.now().strftime('%Y-%m-%d'))
-    amount = float(extracted.get('amount', 0))
-    line_count = int(extracted.get('line_count', 1))
+    
+    # Safely parse amount handling commas or currency symbols
+    amount_str = str(extracted.get('amount', '0'))
+    amount_str = ''.join(c for c in amount_str if c.isdigit() or c == '.')
+    try:
+        amount = float(amount_str) if amount_str else 0.0
+    except ValueError:
+        amount = 0.0
+        
+    try:
+        line_count = int(extracted.get('line_count', 1))
+    except ValueError:
+        line_count = 1
     
     res_ven = supabase.table("vendors").select("*").eq("name", vendor_name).execute()
     if res_ven.data:
@@ -278,7 +289,16 @@ async def upload_invoice(file: UploadFile = File(...)):
         top_idx = np.argsort(np.abs(sv))[-3:][::-1]
         drivers = {feature_names[j]: float(sv[j]) for j in top_idx}
         risk_score = round(prob * 100, 2)
-        fraud_type = 'clean' if risk_score < 40 else ('inflated' if amount_z > 2 else ('ghost' if ghost else 'anomaly'))
+        
+        # Apply rule-based overrides for critical fraud vectors
+        if ghost:
+            risk_score = max(risk_score, 88.5)
+            fraud_type = 'ghost'
+        elif amount_z > 2:
+            risk_score = max(risk_score, 92.0)
+            fraud_type = 'inflated'
+        else:
+            fraud_type = 'clean' if risk_score < 40 else 'anomaly'
     else:
         risk_score = 0
         fraud_type = 'clean'
