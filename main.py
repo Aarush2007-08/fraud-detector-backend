@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from supabase import create_client, Client
 from google import genai
+from google.genai import types
 import os
 from dotenv import load_dotenv
 from fastapi import UploadFile, File
@@ -203,7 +204,10 @@ async def upload_invoice(file: UploadFile = File(...)):
     try:
         response = genai_client.models.generate_content(
             model='gemini-2.5-flash',
-            contents=[prompt, {'mime_type': file.content_type, 'data': content}]
+            contents=[
+                prompt,
+                types.Part.from_bytes(data=content, mime_type=file.content_type)
+            ]
         )
         text = response.text.strip()
         if text.startswith('```json'): text = text[7:-3]
