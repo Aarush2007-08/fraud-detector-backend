@@ -1,0 +1,11 @@
+pandas
+numpy
+xgboost
+shap
+supabase
+faker
+fastapi
+uvicorn
+python-dotenv
+scikit-learn
+google-genai
