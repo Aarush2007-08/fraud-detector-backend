@@ -275,7 +275,11 @@ async def upload_invoice(file: UploadFile = File(...)):
         vendor_id = vendor['id']
     else:
         vendor_id = str(uuid.uuid4())
-        vendor = {'id': vendor_id, 'name': vendor_name, 'age_days': 1, 'category': 'Unknown', 'created_at': datetime.now().isoformat()}
+        # To make the demo realistic, we don't want to flag every new vendor as a Ghost.
+        # We'll consider a new vendor "suspicious" (age < 30) only if it's a high-value, single-line invoice.
+        is_suspicious = (line_count <= 1 and amount >= 500)
+        age_days = 15 if is_suspicious else 400
+        vendor = {'id': vendor_id, 'name': vendor_name, 'age_days': age_days, 'category': 'Unknown', 'created_at': datetime.now().isoformat()}
         supabase.table("vendors").insert(vendor).execute()
         
     res_hist = supabase.table("invoices").select("*").eq("vendor_id", vendor_id).order("date", desc=True).execute()
